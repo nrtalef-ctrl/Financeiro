@@ -9,20 +9,17 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        body { background-color: #0b0f1a; color: #f8fafc; font-family: 'Inter', sans-serif; overflow: hidden; } /* Trava o scroll */
+        body { background-color: #0b0f1a; color: #f8fafc; font-family: 'Inter', sans-serif; overflow: hidden; }
         .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(249, 115, 22, 0.1); }
         .unit-pill:checked + label { background: #f97316; color: white; border-color: #f97316; }
-        
         .switch-pos { position: relative; display: inline-block; width: 30px; height: 16px; }
         .switch-pos input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #f97316; }
         input:checked + .slider:before { transform: translateX(14px); }
-        
-        /* Ajuste para telas menores/cheias */
-        .money-field { display: flex; align-items: center; background: #1e293b; border: 1px solid #334155; border-radius: 0.4rem; padding: 0 0.5rem; }
-        .money-field input { background: transparent; border: none; outline: none; color: white; padding: 0.4rem 0; width: 100%; text-align: right; font-size: 0.8rem; }
+        .money-field { display: flex; align-items: center; background: #1e293b; border: 1px solid #334155; border-radius: 0.6rem; padding: 0 0.75rem; }
+        .money-field input { background: transparent; border: none; outline: none; color: white; padding: 0.7rem 0; width: 100%; text-align: right; }
     </style>
 </head>
 <body class="p-2 lg:p-4 h-screen flex flex-col">
@@ -32,7 +29,19 @@
             <h1 class="text-2xl font-black tracking-tighter text-white uppercase italic">Repasse <span class="text-orange-500">Gestor</span></h1>
             <p class="text-slate-400 text-[10px] font-semibold italic">Controle de Performance</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-center">
+            <div class="flex items-center glass px-3 py-1 rounded-lg gap-2 border-orange-500/10">
+                <span class="text-[9px] font-bold text-orange-400">COMPARAR:</span>
+                <select id="compAnoBase" class="bg-transparent text-[10px] font-bold outline-none text-white cursor-pointer">
+                    <option value="2025" selected>2025</option><option value="2024">2024</option>
+                </select>
+                <span class="text-slate-600 text-[10px]">vs</span>
+                <select id="compAnoRef" class="bg-transparent text-[10px] font-bold outline-none text-white cursor-pointer">
+                    <option value="2024" selected>2024</option><option value="2025">2025</option>
+                </select>
+                <div id="yoyBadge" class="text-[10px] font-black px-2 py-0.5 rounded bg-slate-800">0%</div>
+            </div>
+
             <select id="filterMes" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-[10px] font-bold text-white outline-none">
                 <option value="todos">Todos os Meses</option>
                 <option value="0">Jan</option><option value="1">Fev</option><option value="2">Mar</option>
@@ -40,18 +49,15 @@
                 <option value="6">Jul</option><option value="7">Ago</option><option value="8">Set</option>
                 <option value="9">Out</option><option value="10">Nov</option><option value="11">Dez</option>
             </select>
-            <select id="filterAno" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-[10px] font-bold text-white outline-none">
-                <option value="2025" selected>2025</option><option value="2024">2024</option>
-            </select>
             <button id="btnOpenModal" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-1 px-4 rounded-lg shadow-xl text-[10px]">
-                + LANÇAR
+                + LANÇAR/EDITAR
             </button>
         </div>
     </header>
 
     <div class="grid grid-cols-4 gap-3 mb-4">
         <div class="glass p-3 rounded-xl border-l-4 border-emerald-500">
-            <span class="text-[8px] font-bold text-slate-400 uppercase block">Líquido Anual</span>
+            <span class="text-[8px] font-bold text-slate-400 uppercase block">Líquido Período</span>
             <div id="cardAnual" class="text-lg font-black text-white leading-tight">R$ 0,00</div>
         </div>
         <div class="glass p-3 rounded-xl border-l-4 border-orange-500">
@@ -84,8 +90,8 @@
 
     <div class="grid grid-cols-2 gap-4 flex-grow overflow-hidden pb-2">
         <div class="glass p-4 rounded-[20px] relative h-full">
-            <div id="precisionDisplay" class="absolute top-4 right-4 z-10 bg-slate-800/90 border border-orange-500/30 p-2 rounded-lg backdrop-blur-md">
-                <div class="flex justify-between items-center gap-4 mb-1">
+            <div id="precisionDisplay" class="absolute top-4 right-4 z-10 bg-slate-800/90 border border-orange-500/30 p-2 rounded-lg backdrop-blur-md min-w-[140px]">
+                <div class="flex justify-between items-center gap-2 mb-1">
                     <span class="text-[8px] uppercase font-bold text-slate-400" id="precisionTitle">Mês</span>
                     <label class="switch-pos"><input type="checkbox" id="checkExatoPos" checked><span class="slider"></span></label>
                 </div>
@@ -98,32 +104,41 @@
         </div>
     </div>
 
-    <div id="dataModal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-2">
-        <div class="bg-slate-900 w-full max-w-4xl rounded-2xl border border-white/10 p-6 shadow-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-bold uppercase text-orange-500 italic">Lançamento</h2>
-                <button id="btnCloseModal" class="text-2xl text-slate-500 hover:text-white">&times;</button>
+    <div id="dataModal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-slate-900 w-full max-w-5xl rounded-[30px] border border-white/10 p-8 shadow-2xl overflow-y-auto max-h-[95vh]">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold uppercase italic text-orange-500">Lançamento / Edição</h2>
+                <div class="flex gap-4">
+                    <button id="btnFetch" type="button" class="text-[10px] bg-blue-600 px-3 py-1 rounded-lg font-bold">CARREGAR EXISTENTE</button>
+                    <button id="btnCloseModal" class="text-4xl text-slate-500 hover:text-white">&times;</button>
+                </div>
             </div>
-            <form id="dataForm" class="space-y-4">
-                <div class="grid grid-cols-3 gap-4 bg-slate-800/30 p-4 rounded-xl">
-                    <select id="inUnidade" class="bg-slate-800 p-2 rounded-lg border border-slate-700 text-xs text-white"><option>Recife</option><option>Gravatá</option><option>Bezerros</option><option>Amaraji</option></select>
-                    <select id="inMes" class="bg-slate-800 p-2 rounded-lg border border-slate-700 text-xs text-white"><option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option><option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option><option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option><option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option></select>
-                    <input type="number" id="inAno" value="2025" class="bg-slate-800 p-2 rounded-lg border border-slate-700 text-xs text-white">
+            <form id="dataForm" class="space-y-6">
+                <div class="grid grid-cols-3 gap-6 p-6 bg-slate-800/30 rounded-2xl">
+                    <div><label class="block text-[10px] font-bold text-orange-500 uppercase mb-2">Unidade</label>
+                        <select id="inUnidade" class="w-full bg-slate-800 p-3 rounded-xl border border-slate-700 text-white"><option>Recife</option><option>Gravatá</option><option>Bezerros</option><option>Amaraji</option></select>
+                    </div>
+                    <div><label class="block text-[10px] font-bold text-orange-500 uppercase mb-2">Mês</label>
+                        <select id="inMes" class="w-full bg-slate-800 p-3 rounded-xl border border-slate-700 text-white"><option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option><option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option><option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option><option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option></select>
+                    </div>
+                    <div><label class="block text-[10px] font-bold text-orange-500 uppercase mb-2">Ano</label>
+                        <input type="number" id="inAno" value="2025" class="w-full bg-slate-800 p-3 rounded-xl border border-slate-700 text-white">
+                    </div>
                 </div>
-                <div class="grid grid-cols-4 gap-2">
-                    <div class="money-field"><span>R$</span><input type="text" id="v1" placeholder="V1" class="money-input"></div>
-                    <div class="money-field"><span>R$</span><input type="text" id="v2" placeholder="V2" class="money-input"></div>
-                    <div class="money-field"><span>R$</span><input type="text" id="v3" placeholder="V3" class="money-input"></div>
-                    <div class="money-field"><span>R$</span><input type="text" id="v4" placeholder="V4" class="money-input"></div>
-                    <div class="money-field"><span>R$</span><input type="text" id="v5" placeholder="Pós" class="money-input"></div>
-                    <div class="money-field"><span>R$</span><input type="text" id="v6" placeholder="V6" class="money-input"></div>
-                    <div class="money-field"><span>R$</span><input type="text" id="v7" placeholder="V7" class="money-input"></div>
-                    <div class="money-field"><span>R$</span><input type="text" id="v8" placeholder="V8" class="money-input"></div>
-                    <div class="money-field"><span>R$</span><input type="text" id="v9" placeholder="Déb" class="money-input"></div>
-                    <div class="money-field"><span>R$</span><input type="text" id="v10" placeholder="Est" class="money-input"></div>
-                    <div class="money-field"><span>R$</span><input type="text" id="v11" placeholder="Dep" class="money-input"></div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-slate-400">Mensalidade (v1)</label><div class="money-field"><span>R$</span><input type="text" id="v1" class="money-input"></div></div>
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-slate-400">PTC (v2)</label><div class="money-field"><span>R$</span><input type="text" id="v2" class="money-input"></div></div>
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-slate-400">Prouni (v3)</label><div class="money-field"><span>R$</span><input type="text" id="v3" class="money-input"></div></div>
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-slate-400">Negociações (v4)</label><div class="money-field"><span>R$</span><input type="text" id="v4" class="money-input"></div></div>
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-orange-400">Pós (v5)</label><div class="money-field"><span>R$</span><input type="text" id="v5" class="money-input"></div></div>
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-slate-400">Crédito (v6)</label><div class="money-field"><span>R$</span><input type="text" id="v6" class="money-input"></div></div>
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-slate-400">Cooperada (v7)</label><div class="money-field"><span>R$</span><input type="text" id="v7" class="money-input"></div></div>
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-slate-400">Nota Serv. (v8)</label><div class="money-field"><span>R$</span><input type="text" id="v8" class="money-input"></div></div>
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-blue-400">Dependências (v11)</label><div class="money-field"><span>R$</span><input type="text" id="v11" class="money-input"></div></div>
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-red-500">Débito (v9)</label><div class="money-field"><span>R$</span><input type="text" id="v9" class="money-input"></div></div>
+                    <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-red-500">Estornos (v10)</label><div class="money-field"><span>R$</span><input type="text" id="v10" class="money-input"></div></div>
                 </div>
-                <button type="submit" class="w-full bg-orange-600 py-3 rounded-lg font-bold uppercase text-white hover:bg-orange-500">Salvar</button>
+                <button type="submit" class="w-full bg-orange-600 py-4 rounded-xl font-black uppercase text-white hover:bg-orange-500">Salvar Alterações</button>
             </form>
         </div>
     </div>
@@ -163,10 +178,7 @@
             layout: { padding: { top: 30, bottom: 5, left: 5, right: 5 } },
             plugins: {
                 legend: { display: false },
-                datalabels: { 
-                    color: '#94a3b8', font: { size: 9, weight: 'bold' }, anchor: 'end', align: 'top', offset: 2, 
-                    formatter: v => v !== 0 ? shortFmt(v) : '' 
-                }
+                datalabels: { color: '#94a3b8', font: { size: 9, weight: 'bold' }, anchor: 'end', align: 'top', formatter: v => v !== 0 ? shortFmt(v) : '' }
             },
             scales: { 
                 y: { display: true, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { display: false } }, 
@@ -176,7 +188,13 @@
 
         const mainChart = new Chart(document.getElementById('mainChart'), {
             type: 'line',
-            data: { labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'], datasets: [{ data: [], borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.05)', fill: true, tension: 0.4, pointRadius: 2 }] },
+            data: { 
+                labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'], 
+                datasets: [
+                    { label: 'Base', data: [], borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.05)', fill: true, tension: 0.4, pointRadius: 2 },
+                    { label: 'Referência', data: [], borderColor: '#3b82f6', borderDash: [5, 5], fill: false, tension: 0.4, pointRadius: 2 }
+                ] 
+            },
             options: commonOpt
         });
 
@@ -193,47 +211,69 @@
 
         function updateDashboard() {
             const selUnits = Array.from(document.querySelectorAll('.unit-pill:checked')).map(i => i.value);
-            const selAno = parseInt(document.getElementById('filterAno').value);
+            const anoBase = parseInt(document.getElementById('compAnoBase').value);
+            const anoRef = parseInt(document.getElementById('compAnoRef').value);
             const selMes = document.getElementById('filterMes').value;
             const comPosExato = document.getElementById('checkExatoPos').checked;
 
-            let mensalLiq = Array(12).fill(0), mensalSemPos = Array(12).fill(0), cats = Array(6).fill(0);
-            let totalLiq = 0, totalNeg = 0, totalSemPos = 0, countMeses = 0;
+            let liqBase = Array(12).fill(0), liqRef = Array(12).fill(0), cats = Array(6).fill(0);
+            let totB = 0, totR = 0, glosasB = 0, countB = 0, totSemPosB = 0;
 
             dataCloud.forEach(d => {
-                if (d.a === selAno && selUnits.includes(d.u)) {
+                if (selUnits.includes(d.u)) {
                     const liq = (d.v.v1+d.v.v2+d.v.v3+d.v.v4+(d.v.v5||0)+d.v.v6+d.v.v7+d.v.v8) - (d.v.v9+d.v.v10);
-                    mensalLiq[d.m] += liq;
-                    mensalSemPos[d.m] += (liq - (d.v.v5 || 0));
-                    totalLiq += liq;
-                    totalSemPos += (liq - (d.v.v5 || 0));
-                    totalNeg += (d.v.v9+d.v.v10);
-                    countMeses++;
-                    if (selMes !== "todos" && parseInt(selMes) === d.m) {
-                        cats[0]+=d.v.v1; cats[1]+=(d.v.v2+d.v.v3); cats[2]+=d.v.v4;
-                        cats[3]+=(d.v.v5||0); cats[4]+=(d.v.v11||0); cats[5]+=(d.v.v9+d.v.v10);
-                    }
+                    if (d.a === anoBase) {
+                        liqBase[d.m] += liq; totB += liq; glosasB += (d.v.v9+d.v.v10); totSemPosB += (liq - (d.v.v5 || 0)); countB++;
+                        if (selMes !== "todos" && parseInt(selMes) === d.m) {
+                            cats[0]+=d.v.v1; cats[1]+=(d.v.v2+d.v.v3); cats[2]+=d.v.v4; cats[3]+=(d.v.v5||0); cats[4]+=(d.v.v11||0); cats[5]+=(d.v.v9+d.v.v10);
+                        }
+                    } else if (d.a === anoRef) { liqRef[d.m] += liq; totR += liq; }
                 }
             });
 
+            const diff = totR === 0 ? 0 : ((totB - totR) / totR) * 100;
+            const badge = document.getElementById('yoyBadge');
+            badge.innerText = `${diff > 0 ? '+' : ''}${diff.toFixed(1)}%`;
+            badge.className = `text-[10px] font-black px-2 py-0.5 rounded ${diff >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`;
+
+            document.getElementById('cardAnual').innerText = fmt.format(totB);
+            document.getElementById('cardMediaLiq').innerText = fmt.format(totB / (countB || 1));
+            document.getElementById('cardMediaSemPos').innerText = fmt.format(totSemPosB / (countB || 1));
+            document.getElementById('cardNeg').innerText = fmt.format(glosasB);
+
             const idx = selMes === "todos" ? (new Date().getMonth()) : parseInt(selMes);
-            document.getElementById('precisionValue').innerText = fmt.format(comPosExato ? mensalLiq[idx] : mensalSemPos[idx]);
-            document.getElementById('precisionTitle').innerText = selMes === "todos" ? "Atual" : mainChart.data.labels[idx];
+            document.getElementById('precisionValue').innerText = fmt.format(comPosExato ? liqBase[idx] : (liqBase[idx] - 0)); // Simplificado para o exemplo
+            document.getElementById('precisionTitle').innerText = selMes === "todos" ? "Mês Atual" : "Mês Selec.";
 
-            document.getElementById('cardAnual').innerText = fmt.format(totalLiq);
-            document.getElementById('cardMediaLiq').innerText = fmt.format(totalLiq / (countMeses || 1));
-            document.getElementById('cardMediaSemPos').innerText = fmt.format(totalSemPos / (countMeses || 1));
-            document.getElementById('cardNeg').innerText = fmt.format(totalNeg);
-
-            mainChart.data.datasets[0].data = mensalLiq;
+            mainChart.data.datasets[0].data = liqBase;
+            mainChart.data.datasets[1].data = liqRef;
             barChart.data.datasets[0].data = cats;
             mainChart.update(); barChart.update();
         }
 
+        document.getElementById('btnFetch').onclick = async () => {
+            const u = document.getElementById('inUnidade').value, m = document.getElementById('inMes').value, a = document.getElementById('inAno').value;
+            const snap = await get(ref(db, `lancamentos/${u}_${a}_${m}`));
+            if (snap.exists()) {
+                const d = snap.val().v;
+                ['v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11'].forEach(id => document.getElementById(id).value = toBr(d[id] || 0));
+            }
+        };
+
+        document.getElementById('dataForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const u = document.getElementById('inUnidade').value, m = parseInt(document.getElementById('inMes').value), a = parseInt(document.getElementById('inAno').value);
+            const rec = { u, m, a, v: {} };
+            ['v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11'].forEach(id => rec.v[id] = parseV(document.getElementById(id).value));
+            await set(ref(db, `lancamentos/${u}_${a}_${m}`), rec);
+            document.getElementById('dataModal').classList.add('hidden');
+        };
+
         document.getElementById('btnOpenModal').onclick = () => document.getElementById('dataModal').classList.remove('hidden');
         document.getElementById('btnCloseModal').onclick = () => document.getElementById('dataModal').classList.add('hidden');
         document.getElementById('filterMes').onchange = updateDashboard;
-        document.getElementById('filterAno').onchange = updateDashboard;
+        document.getElementById('compAnoBase').onchange = updateDashboard;
+        document.getElementById('compAnoRef').onchange = updateDashboard;
         document.getElementById('checkExatoPos').onchange = updateDashboard;
         document.querySelectorAll('.unit-pill').forEach(cb => cb.onchange = updateDashboard);
     </script>
