@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Repasse Analítico - Gestor</title>
+    <title>Repasse Gestor - Controle de Performance</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -14,6 +14,14 @@
         .money-field { display: flex; align-items: center; background: #1e293b; border: 1px solid #334155; border-radius: 0.6rem; padding: 0 0.75rem; }
         .money-field input { background: transparent; border: none; outline: none; color: white; padding: 0.7rem 0; width: 100%; text-align: right; }
         .unit-pill:checked + label { background: #f97316; color: white; border-color: #f97316; }
+        
+        /* Estilo para o seletor Com/Sem Pós interno */
+        .switch-pos { position: relative; display: inline-block; width: 34px; height: 20px; }
+        .switch-pos input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #f97316; }
+        input:checked + .slider:before { transform: translateX(14px); }
     </style>
 </head>
 <body class="p-4 lg:p-8">
@@ -49,19 +57,19 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="glass p-6 rounded-2xl border-l-4 border-emerald-500">
             <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Líquido Anual</span>
-            <div id="cardAnual" class="text-3xl lg:text-4xl font-black text-white">R$ 0,00</div>
+            <div id="cardAnual" class="text-2xl lg:text-3xl font-black text-white">R$ 0,00</div>
         </div>
         <div class="glass p-6 rounded-2xl border-l-4 border-orange-500">
             <span class="text-[10px] font-bold text-orange-400 uppercase block mb-1">Média Mensal</span>
-            <div id="cardMediaLiq" class="text-3xl lg:text-4xl font-black text-white">R$ 0,00</div>
+            <div id="cardMediaLiq" class="text-2xl lg:text-3xl font-black text-white">R$ 0,00</div>
         </div>
         <div class="glass p-6 rounded-2xl border-l-4 border-blue-500">
             <span class="text-[10px] font-bold text-blue-400 uppercase block mb-1">Média Sem Pós</span>
-            <div id="cardMediaSemPos" class="text-3xl lg:text-4xl font-black text-white">R$ 0,00</div>
+            <div id="cardMediaSemPos" class="text-2xl lg:text-3xl font-black text-white">R$ 0,00</div>
         </div>
         <div class="glass p-6 rounded-2xl border-l-4 border-red-500">
             <span class="text-[10px] font-bold text-red-500 uppercase block mb-1">Total Glosas</span>
-            <div id="cardNeg" class="text-3xl lg:text-4xl font-black text-white">R$ 0,00</div>
+            <div id="cardNeg" class="text-2xl lg:text-3xl font-black text-white">R$ 0,00</div>
         </div>
     </div>
 
@@ -79,8 +87,21 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div class="glass p-6 rounded-[30px] h-[550px]"><canvas id="mainChart"></canvas></div>
-        <div class="glass p-6 rounded-[30px] h-[550px]"><canvas id="barChart"></canvas></div>
+        <div class="glass p-6 rounded-[30px] h-[500px] relative shadow-2xl">
+            <div id="precisionDisplay" class="absolute top-6 right-6 z-10 bg-slate-800/80 border border-orange-500/30 p-3 rounded-xl backdrop-blur-md min-w-[180px]">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-[9px] uppercase font-bold text-slate-400" id="precisionTitle">Valor do Mês</span>
+                    <label class="switch-pos">
+                        <input type="checkbox" id="checkExatoPos" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div id="precisionValue" class="text-lg font-black text-orange-500 leading-none">R$ 0,00</div>
+                <span class="text-[8px] text-slate-500 uppercase font-bold" id="precisionSub">Com Pós-Graduação</span>
+            </div>
+            <canvas id="mainChart"></canvas>
+        </div>
+        <div class="glass p-6 rounded-[30px] h-[500px] shadow-2xl"><canvas id="barChart"></canvas></div>
     </div>
 
     <div id="dataModal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
@@ -145,10 +166,11 @@
 
         let dataCloud = [];
         const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+        const shortFmt = v => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v.toFixed(0);
+
         const parseV = v => parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0;
         const toBr = v => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // Máscara Dinheiro
         document.querySelectorAll('.money-input').forEach(i => i.addEventListener('input', e => {
             let v = e.target.value.replace(/\D/g, "");
             v = (v / 100).toFixed(2).replace(".", ",");
@@ -158,23 +180,29 @@
 
         const commonOpt = {
             responsive: true, maintainAspectRatio: false,
-            layout: { padding: { top: 120, bottom: 20, left: 15, right: 15 } },
+            layout: { padding: { top: 60, bottom: 10, left: 10, right: 10 } },
             plugins: {
-                legend: { labels: { color: '#94a3b8', font: { weight: 'bold' } } },
-                datalabels: { color: '#fff', font: { size: 12, weight: '900' }, anchor: 'end', align: 'top', offset: 12, formatter: v => v != 0 ? fmt.format(v) : '' }
+                legend: { display: false },
+                datalabels: { 
+                    color: '#94a3b8', font: { size: 10, weight: 'bold' }, anchor: 'end', align: 'top', offset: 4, 
+                    formatter: v => v !== 0 ? shortFmt(v) : '' 
+                }
             },
-            scales: { y: { display: false }, x: { ticks: { color: '#64748b', font: { weight: 'bold' } }, grid: { display: false } } }
+            scales: { 
+                y: { display: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { display: false } }, 
+                x: { ticks: { color: '#64748b', font: { weight: 'bold', size: 10 } }, grid: { display: false } } 
+            }
         };
 
         const mainChart = new Chart(document.getElementById('mainChart'), {
             type: 'line',
-            data: { labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'], datasets: [{ label: 'Repasse Líquido Real', data: [], borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', fill: true, tension: 0.4 }] },
+            data: { labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'], datasets: [{ label: 'Repasse', data: [], borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', fill: true, tension: 0.4, pointRadius: 4 }] },
             options: commonOpt
         });
 
         const barChart = new Chart(document.getElementById('barChart'), {
             type: 'bar',
-            data: { labels: ['Mens.','PTC/Pro.','Negoc.','Pós','Dep.','Glosas'], datasets: [{ label: 'Composição Financeira', data: [], backgroundColor: ['#f97316','#3b82f6','#f59e0b','#8b5cf6','#06b6d4','#ef4444'], borderRadius: 8, barPercentage: 0.95 }] },
+            data: { labels: ['Mens.','PTC/Pro.','Negoc.','Pós','Dep.','Glosas'], datasets: [{ data: [], backgroundColor: ['#f97316','#3b82f6','#f59e0b','#8b5cf6','#06b6d4','#ef4444'], borderRadius: 6 }] },
             options: commonOpt
         });
 
@@ -187,35 +215,41 @@
             const selUnits = Array.from(document.querySelectorAll('.unit-pill:checked')).map(i => i.value);
             const selAno = parseInt(document.getElementById('filterAno').value);
             const selMes = document.getElementById('filterMes').value;
-            const selSemestre = document.getElementById('filterSemestre').value;
+            const comPosExato = document.getElementById('checkExatoPos').checked;
 
-            let mensalLiq = Array(12).fill(0), cats = Array(6).fill(0);
+            let mensalLiq = Array(12).fill(0), mensalSemPos = Array(12).fill(0), cats = Array(6).fill(0);
             let totalLiq = 0, totalNeg = 0, totalSemPos = 0, countMeses = 0;
 
             dataCloud.forEach(d => {
                 if (d.a === selAno && selUnits.includes(d.u)) {
-                    const entradas = (d.v.v1+d.v.v2+d.v.v3+d.v.v4+d.v.v5+d.v.v6+d.v.v7+d.v.v8);
+                    const entradas = (d.v.v1+d.v.v2+d.v.v3+d.v.v4+(d.v.v5||0)+d.v.v6+d.v.v7+d.v.v8);
                     const glosas = (d.v.v9 + d.v.v10);
                     const liq = entradas - glosas;
 
                     mensalLiq[d.m] += liq;
+                    mensalSemPos[d.m] += (liq - (d.v.v5 || 0));
                     
-                    const inSemestre = (selSemestre === "ano") || (selSemestre === "1sem" && d.m <= 5) || (selSemestre === "2sem" && d.m >= 6);
-                    
-                    if (inSemestre) {
-                        totalLiq += liq;
-                        totalSemPos += (liq - d.v.v5);
-                        totalNeg += glosas;
-                        countMeses++;
-                        
-                        if (selMes === "todos" || parseInt(selMes) === d.m) {
-                            cats[0]+=d.v.v1; cats[1]+=(d.v.v2+d.v.v3); cats[2]+=d.v.v4;
-                            cats[3]+=d.v.v5; cats[4]+=d.v.v11; cats[5]+=glosas;
-                        }
+                    totalLiq += liq;
+                    totalSemPos += (liq - (d.v.v5 || 0));
+                    totalNeg += glosas;
+                    countMeses++;
+
+                    if (selMes !== "todos" && parseInt(selMes) === d.m) {
+                        cats[0]+=d.v.v1; cats[1]+=(d.v.v2+d.v.v3); cats[2]+=d.v.v4;
+                        cats[3]+=(d.v.v5||0); cats[4]+=(d.v.v11||0); cats[5]+=glosas;
                     }
                 }
             });
 
+            // Atualiza Card de Precisão
+            const idx = selMes === "todos" ? (new Date().getMonth()) : parseInt(selMes);
+            const valorExato = comPosExato ? mensalLiq[idx] : mensalSemPos[idx];
+            
+            document.getElementById('precisionValue').innerText = fmt.format(valorExato);
+            document.getElementById('precisionTitle').innerText = selMes === "todos" ? "Mês Atual" : mainChart.data.labels[idx];
+            document.getElementById('precisionSub').innerText = comPosExato ? "Com Pós-Graduação" : "Sem Pós-Graduação";
+
+            // Atualiza Cards Gerais
             document.getElementById('cardAnual').innerText = fmt.format(totalLiq);
             document.getElementById('cardMediaLiq').innerText = fmt.format(totalLiq / (countMeses || 1));
             document.getElementById('cardMediaSemPos').innerText = fmt.format(totalSemPos / (countMeses || 1));
@@ -226,21 +260,12 @@
             mainChart.update(); barChart.update();
         }
 
-        // FUNÇÃO DE EDIÇÃO: Carrega dados do Firebase para o Form
         document.getElementById('btnFetch').onclick = async () => {
-            const u = document.getElementById('inUnidade').value;
-            const m = document.getElementById('inMes').value;
-            const a = document.getElementById('inAno').value;
+            const u = document.getElementById('inUnidade').value, m = document.getElementById('inMes').value, a = document.getElementById('inAno').value;
             const snapshot = await get(ref(db, `lancamentos/${u}_${a}_${m}`));
-            
             if (snapshot.exists()) {
                 const d = snapshot.val().v;
-                ['v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11'].forEach(id => {
-                    document.getElementById(id).value = toBr(d[id] || 0);
-                });
-                alert("Dados carregados para edição!");
-            } else {
-                alert("Nenhum dado encontrado para este período. Iniciando novo lançamento.");
+                ['v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11'].forEach(id => document.getElementById(id).value = toBr(d[id] || 0));
             }
         };
 
@@ -249,18 +274,15 @@
             const u = document.getElementById('inUnidade').value, m = parseInt(document.getElementById('inMes').value), a = parseInt(document.getElementById('inAno').value);
             const rec = { u, m, a, v: {} };
             ['v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11'].forEach(id => rec.v[id] = parseV(document.getElementById(id).value));
-
             await set(ref(db, `lancamentos/${u}_${a}_${m}`), rec);
             document.getElementById('dataModal').classList.add('hidden');
-            document.getElementById('dataForm').reset();
-            alert("Salvo com sucesso!");
         };
 
         document.getElementById('btnOpenModal').onclick = () => document.getElementById('dataModal').classList.remove('hidden');
         document.getElementById('btnCloseModal').onclick = () => document.getElementById('dataModal').classList.add('hidden');
         document.getElementById('filterMes').onchange = updateDashboard;
         document.getElementById('filterAno').onchange = updateDashboard;
-        document.getElementById('filterSemestre').onchange = updateDashboard;
+        document.getElementById('checkExatoPos').onchange = updateDashboard;
         document.querySelectorAll('.unit-pill').forEach(cb => cb.onchange = updateDashboard);
     </script>
 </body>
