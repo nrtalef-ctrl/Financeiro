@@ -108,7 +108,7 @@
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl font-bold uppercase italic text-orange-500">Lançamento de Dados</h2>
                 <div class="flex gap-4">
-                    <button id="btnFetch" type="button" class="text-[10px] bg-blue-600 px-3 py-1 rounded-lg font-bold">CARREGAR</button>
+                    <button id="btnFetch" type="button" class="text-[10px] bg-blue-600 px-3 py-1 rounded-lg font-bold">RECARREGAR</button>
                     <button id="btnCloseModal" class="text-4xl text-slate-500 hover:text-white">&times;</button>
                 </div>
             </div>
@@ -137,7 +137,7 @@
                     <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-red-500">Débito (v9)</label><div class="money-field"><span>R$</span><input type="text" id="v9" class="money-input"></div></div>
                     <div class="space-y-1"><label class="text-[9px] uppercase font-bold text-red-500">Estornos (v10)</label><div class="money-field"><span>R$</span><input type="text" id="v10" class="money-input"></div></div>
                 </div>
-                <button type="submit" class="w-full bg-orange-600 py-4 rounded-xl font-black uppercase text-white hover:bg-orange-500">Salvar Dados</button>
+                <button type="submit" class="w-full bg-orange-600 py-4 rounded-xl font-black uppercase text-white hover:bg-orange-500">Salvar / Atualizar Dados</button>
             </form>
         </div>
     </div>
@@ -164,6 +164,7 @@
         const shortFmt = v => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v.toFixed(0);
         const parseV = v => parseFloat(v.toString().replace(/\./g, '').replace(',', '.')) || 0;
         const toBr = v => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const safe = v => parseFloat(v) || 0;
 
         document.querySelectorAll('.money-input').forEach(i => i.addEventListener('input', e => {
             let v = e.target.value.replace(/\D/g, "");
@@ -213,27 +214,26 @@
             const anosExistentes = [...new Set(dataCloud.map(d => d.a))].sort((a, b) => b - a);
             const baseSelect = document.getElementById('compAnoBase');
             const refSelect = document.getElementById('compAnoRef');
-            
             const currentBase = baseSelect.value;
             const currentRef = refSelect.value;
 
-            baseSelect.innerHTML = "";
-            refSelect.innerHTML = "";
+            if (baseSelect.options.length !== anosExistentes.length || baseSelect.innerHTML === "") {
+                baseSelect.innerHTML = "";
+                refSelect.innerHTML = "";
 
-            if (anosExistentes.length === 0) {
-                const anoAtual = new Date().getFullYear();
-                baseSelect.innerHTML = `<option value="${anoAtual}">${anoAtual}</option>`;
-                refSelect.innerHTML = `<option value="${anoAtual-1}">${anoAtual-1}</option>`;
-            } else {
-                anosExistentes.forEach(ano => {
-                    baseSelect.innerHTML += `<option value="${ano}">${ano}</option>`;
-                    refSelect.innerHTML += `<option value="${ano}">${ano}</option>`;
-                });
+                if (anosExistentes.length === 0) {
+                    const anoAtual = new Date().getFullYear();
+                    baseSelect.innerHTML = `<option value="${anoAtual}">${anoAtual}</option>`;
+                    refSelect.innerHTML = `<option value="${anoAtual-1}">${anoAtual-1}</option>`;
+                } else {
+                    anosExistentes.forEach(ano => {
+                        baseSelect.innerHTML += `<option value="${ano}">${ano}</option>`;
+                        refSelect.innerHTML += `<option value="${ano}">${ano}</option>`;
+                    });
+                }
+                baseSelect.value = currentBase || (anosExistentes.length > 0 ? anosExistentes[0] : new Date().getFullYear());
+                refSelect.value = currentRef || (anosExistentes.length > 1 ? anosExistentes[1] : (anosExistentes[0] - 1 || new Date().getFullYear() - 1));
             }
-
-            baseSelect.value = currentBase || (anosExistentes.length > 0 ? anosExistentes[0] : new Date().getFullYear());
-            refSelect.value = currentRef || (anosExistentes.length > 1 ? anosExistentes[1] : (anosExistentes[0] - 1 || new Date().getFullYear() - 1));
-
             updateDashboard();
         });
 
@@ -241,6 +241,7 @@
             const selUnits = Array.from(document.querySelectorAll('.unit-pill:checked')).map(i => i.value);
             const baseSelect = document.getElementById('compAnoBase');
             const refSelect = document.getElementById('compAnoRef');
+            
             if (!baseSelect.value || !refSelect.value) return;
 
             const anoBase = parseInt(baseSelect.value);
@@ -255,24 +256,24 @@
 
             dataCloud.forEach(d => {
                 if (selUnits.includes(d.u)) {
-                    const v5 = parseFloat(d.v.v5) || 0;
-                    const ganhos = (d.v.v1 + d.v.v2 + d.v.v3 + d.v.v4 + v5 + d.v.v6 + d.v.v7 + d.v.v8);
-                    const perdas = (d.v.v9 + d.v.v10);
+                    const v5 = safe(d.v.v5);
+                    const ganhos = (safe(d.v.v1) + safe(d.v.v2) + safe(d.v.v3) + safe(d.v.v4) + v5 + safe(d.v.v6) + safe(d.v.v7) + safe(d.v.v8));
+                    const perdas = (safe(d.v.v9) + safe(d.v.v10));
                     const liq = ganhos - perdas;
 
                     if (d.a === anoBase) {
                         liqBase[d.m] += liq;
                         posBase[d.m] += v5;
                         totB += liq;
-                        glosasB += (d.v.v9 + d.v.v10);
+                        glosasB += perdas;
                         totSemPosB += (liq - v5);
                         countB++;
 
                         if (selMes === "todos" || parseInt(selMes) === d.m) {
-                            cats[0] += d.v.v1; cats[1] += d.v.v2; cats[2] += d.v.v3;
-                            cats[3] += d.v.v4; cats[4] += v5;
-                            cats[5] += (d.v.v6 + d.v.v7 + d.v.v8 + (d.v.v11||0));
-                            cats[6] += (d.v.v9 + d.v.v10);
+                            cats[0] += safe(d.v.v1); cats[1] += safe(d.v.v2); cats[2] += safe(d.v.v3);
+                            cats[3] += safe(d.v.v4); cats[4] += v5;
+                            cats[5] += (safe(d.v.v6) + safe(d.v.v7) + safe(d.v.v8) + safe(d.v.v11));
+                            cats[6] += perdas;
                         }
                     }
 
@@ -315,16 +316,32 @@
             barChart.update();
         }
 
-        document.getElementById('btnFetch').onclick = async () => {
-            const u = document.getElementById('inUnidade').value, m = document.getElementById('inMes').value, a = document.getElementById('inAno').value;
-            const snap = await get(ref(db, `lancamentos/${u}_${a}_${m}`));
-            if (snap.exists()) {
-                const d = snap.val().v;
-                ['v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11'].forEach(id => {
-                    document.getElementById(id).value = toBr(d[id] || 0);
-                });
-            } else { alert("Sem dados."); }
+        const loadFormData = async (silent = false) => {
+            const u = document.getElementById('inUnidade').value;
+            const m = document.getElementById('inMes').value;
+            const a = document.getElementById('inAno').value;
+            
+            try {
+                const snap = await get(ref(db, `lancamentos/${u}_${a}_${m}`));
+                if (snap.exists()) {
+                    const d = snap.val().v;
+                    ['v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11'].forEach(id => {
+                        document.getElementById(id).value = toBr(d[id] || 0);
+                    });
+                    if (!silent) console.log("Dados carregados.");
+                } else {
+                    ['v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11'].forEach(id => {
+                        document.getElementById(id).value = "0,00";
+                    });
+                    if (!silent) console.log("Sem dados prévios.");
+                }
+            } catch (error) { console.error(error); }
         };
+
+        document.getElementById('btnFetch').onclick = () => loadFormData(false);
+        document.getElementById('inUnidade').onchange = () => loadFormData(true);
+        document.getElementById('inMes').onchange = () => loadFormData(true);
+        document.getElementById('inAno').onchange = () => loadFormData(true);
 
         document.getElementById('dataForm').onsubmit = async (e) => {
             e.preventDefault();
@@ -335,7 +352,19 @@
             document.getElementById('dataModal').classList.add('hidden');
         };
 
-        document.getElementById('btnOpenModal').onclick = () => document.getElementById('dataModal').classList.remove('hidden');
+        document.getElementById('btnOpenModal').onclick = () => {
+            const dashMes = document.getElementById('filterMes').value;
+            const dashAno = document.getElementById('compAnoBase').value;
+            const checkedUnit = document.querySelector('.unit-pill:checked');
+
+            if (checkedUnit) document.getElementById('inUnidade').value = checkedUnit.value;
+            if (dashMes !== 'todos') document.getElementById('inMes').value = dashMes;
+            if (dashAno) document.getElementById('inAno').value = dashAno;
+
+            document.getElementById('dataModal').classList.remove('hidden');
+            loadFormData(true);
+        };
+        
         document.getElementById('btnCloseModal').onclick = () => document.getElementById('dataModal').classList.add('hidden');
         document.getElementById('filterMes').onchange = updateDashboard;
         document.getElementById('compAnoBase').onchange = updateDashboard;
