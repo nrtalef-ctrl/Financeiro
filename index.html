@@ -32,7 +32,7 @@
         
         <div id="precisionDisplay" class="flex items-center gap-4 glass px-4 py-2 rounded-xl border-orange-500/20">
             <div>
-                <span class="text-[8px] uppercase font-bold text-slate-400 block" id="precisionTitle">Mês Selecionado</span>
+                <span class="text-[8px] uppercase font-bold text-slate-400 block" id="precisionTitle">Total do Ano</span>
                 <div id="precisionValue" class="text-sm font-black text-orange-500 leading-none">R$ 0,00</div>
             </div>
             <div class="flex flex-col items-center">
@@ -247,12 +247,13 @@
             const anoBase = parseInt(baseSelect.value);
             const anoRef = parseInt(refSelect.value);
             const selMes = document.getElementById('filterMes').value;
-            const comPosExato = document.getElementById('checkExatoPos').checked;
+            const comPos = document.getElementById('checkExatoPos').checked;
 
             let liqBase = Array(12).fill(0), liqRef = Array(12).fill(0), posBase = Array(12).fill(0);
             let cats = Array(7).fill(0);
-            let totB = 0, glosasB = 0, countB = 0, totSemPosB = 0;
+            let totB = 0, glosasB = 0, totSemPosB = 0;
             let valComparativoRef = 0;
+            let temDado = Array(12).fill(false); // marca quais meses têm lançamentos no ano base
 
             dataCloud.forEach(d => {
                 if (selUnits.includes(d.u)) {
@@ -267,7 +268,7 @@
                         totB += liq;
                         glosasB += perdas;
                         totSemPosB += (liq - v5);
-                        countB++;
+                        temDado[d.m] = true; // marca que este mês tem pelo menos um registro
 
                         if (selMes === "todos" || parseInt(selMes) === d.m) {
                             cats[0] += safe(d.v.v1); cats[1] += safe(d.v.v2); cats[2] += safe(d.v.v3);
@@ -286,9 +287,13 @@
                 }
             });
 
+            // Contar meses com dados no ano base
+            const mesesComDados = temDado.filter(v => v).length;
+            const divisor = mesesComDados > 0 ? mesesComDados : 1; // evitar divisão por zero
+
+            // YoY
             const yoyBadge = document.getElementById('yoyBadge');
             const valorAtual = selMes === "todos" ? totB : liqBase[parseInt(selMes)];
-
             if (valComparativoRef > 0) {
                 const diff = ((valorAtual - valComparativoRef) / valComparativoRef) * 100;
                 yoyBadge.innerText = (diff > 0 ? '+' : '') + diff.toFixed(1) + '%';
@@ -298,15 +303,35 @@
                 yoyBadge.className = 'text-[10px] font-black px-2 py-0.5 rounded bg-slate-800 text-slate-400';
             }
 
-            document.getElementById('cardAnual').innerText = fmt.format(totB);
-            document.getElementById('cardMediaLiq').innerText = fmt.format(totB / (countB || 1));
-            document.getElementById('cardMediaSemPos').innerText = fmt.format(totSemPosB / (countB || 1));
+            // --- CARDS ---
+            // Líquido Período: total do ano (com ou sem Pós)
+            const totalExibido = comPos ? totB : totSemPosB;
+            document.getElementById('cardAnual').innerText = fmt.format(totalExibido);
+
+            // Médias usando o divisor real (meses com dados)
+            const mediaComPos = totB / divisor;
+            const mediaSemPos = totSemPosB / divisor;
+            document.getElementById('cardMediaLiq').innerText = fmt.format(mediaComPos);
+            document.getElementById('cardMediaSemPos').innerText = fmt.format(mediaSemPos);
             document.getElementById('cardNeg').innerText = fmt.format(glosasB);
 
-            const idx = selMes === "todos" ? (new Date().getMonth()) : parseInt(selMes);
-            const valFinal = comPosExato ? liqBase[idx] : (liqBase[idx] - posBase[idx]);
-            document.getElementById('precisionValue').innerText = fmt.format(valFinal);
-            
+            // --- Mês Selecionado (à direita do switch) ---
+            const precisionTitle = document.getElementById('precisionTitle');
+            const precisionValue = document.getElementById('precisionValue');
+
+            if (selMes === "todos") {
+                // Mostra o total do ano (com ou sem Pós)
+                precisionTitle.innerText = "Total do Ano";
+                precisionValue.innerText = fmt.format(totalExibido);
+            } else {
+                // Mostra o valor do mês específico
+                const idx = parseInt(selMes);
+                const valorMes = comPos ? liqBase[idx] : (liqBase[idx] - posBase[idx]);
+                precisionTitle.innerText = "Mês Selecionado";
+                precisionValue.innerText = fmt.format(valorMes);
+            }
+
+            // Atualizar gráficos
             mainChart.data.datasets[0].label = `Base ${anoBase}`;
             mainChart.data.datasets[1].label = `Ref ${anoRef}`;
             mainChart.data.datasets[0].data = liqBase;
